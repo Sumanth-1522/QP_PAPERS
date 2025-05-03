@@ -1,78 +1,66 @@
 from flask import Flask, render_template_string, request, redirect, url_for, flash, make_response, session, jsonify
 from flask_bcrypt import Bcrypt
-import mysql.connector
-from mysql.connector import Error
+import sqlite3
 from werkzeug.utils import secure_filename
 import io
 import math
 import logging
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Replace with a secure key in production
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'supersecretkey')  # Use env var or fallback
 bcrypt = Bcrypt(app)
 
-# TiDB Serverless connection
+# SQLite database path
+DATABASE = 'qpaper.db'
+
+# SQLite connection
 def get_db_connection():
     try:
-        conn = mysql.connector.connect(
-            host='gateway01.us-west-2.prod.aws.tidbcloud.com',
-            port=4000,
-            user='jGPUfSFjtjfJNds.root',
-            password='2wUbW8Q1IIlzENLd',
-            database='test',
-            ssl_ca=r"C:\Users\suman\Downloads\isrgrootx1.pem",
-            ssl_verify_cert=True
-        )
-        logging.info("TiDB Serverless connection successful")
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row  # Enable row access by column name
+        logging.info("SQLite connection successful")
         return conn
-    except Error as e:
-        logging.error(f"TiDB Serverless connection failed: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
-        if e.errno == 1045:
-            logging.error("Access denied: Verify username/password.")
-        elif e.errno == 1049:
-            logging.error("Database not found: Create 'test' in TiDB Cloud.")
-        elif e.errno == 2003:
-            logging.error("Can't connect to TiDB server: Check host/port or IP access list.")
-        elif e.errno == 2026:
-            logging.error("SSL error: Verify CA certificate path or contents.")
+    except sqlite3.Error as e:
+        logging.error(f"SQLite connection failed: {str(e)}")
         return None
 
 # Initialize database and tables
 def init_db():
     conn = get_db_connection()
     if not conn:
-        logging.error("Failed to connect to TiDB database in init_db. Ensure credentials, CA certificate, and IP access list are correct.")
+        logging.error("Failed to connect to SQLite database in init_db.")
         return
     try:
         cursor = conn.cursor()
         logging.debug("Creating question_papers_1 table if not exists")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS question_papers_1 (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                year_name VARCHAR(20) NOT NULL,
-                semester_no INT NOT NULL,
-                subject_name VARCHAR(100) NOT NULL,
-                subject_code VARCHAR(20),
-                paper_type ENUM('Regular', 'Arrear') NOT NULL,
-                paper_year YEAR,
-                file_data LONGBLOB NOT NULL
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                year_name TEXT NOT NULL,
+                semester_no INTEGER NOT NULL,
+                subject_name TEXT NOT NULL,
+                subject_code TEXT,
+                paper_type TEXT NOT NULL CHECK(paper_type IN ('Regular', 'Arrear')),
+                paper_year INTEGER,
+                file_data BLOB NOT NULL
             )
         """)
         logging.debug("Creating users table if not exists")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(50) NOT NULL UNIQUE,
-                password VARCHAR(255) NOT NULL
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL
             )
         """)
         conn.commit()
-        logging.info("TiDB database initialized successfully")
-    except mysql.connector.Error as e:
-        logging.error(f"Error initializing TiDB database: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+        logging.info("SQLite database initialized successfully")
+    except sqlite3.Error as e:
+        logging.error(f"Error initializing SQLite database: {str(e)}")
     finally:
         cursor.close()
         conn.close()
@@ -101,20 +89,47 @@ def test_db():
     if not conn:
         return jsonify({
             "status": "error",
-            "message": "Failed to connect to TiDB: Check logs for details."
+            "message": "Failed to connect to SQLite: Check logs for details."
         }), 500
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'test'")
+        cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('question_papers_1', 'users')")
         table_count = cursor.fetchone()[0]
         return jsonify({
             "status": "success",
-            "message": f"Connected to TiDB Serverless. Found {table_count} tables in 'test' database."
+            "message": f"Connected to SQLite. Found {table_count} tables in '{DATABASE}' database."
         })
-    except mysql.connector.Error as e:
+    except sqlite3.Error as e:
         return jsonify({
             "status": "error",
-            "message": f"Failed to query TiDB: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})"
+            "message": f"Failed to query SQLite: {str(e)}"
+        }), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# List users endpoint
+@app.route('/list_users')
+def list_users():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({
+            "status": "error",
+            "message": "Failed to connect to SQLite: Check logs for details."
+        }), 500
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT username FROM users")
+        users = [row['username'] for row in cursor.fetchall()]
+        return jsonify({
+            "status": "success",
+            "users": users,
+            "message": f"Found {len(users)} users in '{DATABASE}' database."
+        })
+    except sqlite3.Error as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to query users: {str(e)}"
         }), 500
     finally:
         cursor.close()
@@ -411,18 +426,18 @@ INDEX_TEMPLATE = """
                         <tbody>
                             {% for record in records %}
                                 <tr>
-                                    <td class="border px-4 py-2">{{ record[1] }}</td>
-                                    <td class="border px-4 py-2">{{ record[2] }}</td>
-                                    <td class="border px-4 py-2">{{ record[3] }}</td>
-                                    <td class="border px-4 py-2">{{ record[4] }}</td>
-                                    <td class="border px-4 py-2">{{ record[5] }}</td>
-                                    <td class="border px-4 py-2">{{ record[6] }}</td>
+                                    <td class="border px-4 py-2">{{ record['year_name'] }}</td>
+                                    <td class="border px-4 py-2">{{ record['semester_no'] }}</td>
+                                    <td class="border px-4 py-2">{{ record['subject_name'] }}</td>
+                                    <td class="border px-4 py-2">{{ record['subject_code'] }}</td>
+                                    <td class="border px-4 py-2">{{ record['paper_type'] }}</td>
+                                    <td class="border px-4 py-2">{{ record['paper_year'] }}</td>
                                     <td class="border px-4 py-2">
-                                        <a href="{{ url_for('download', id=record[0]) }}" class="text-blue-600 hover:underline">Download</a>
+                                        <a href="{{ url_for('download', id=record['id']) }}" class="text-blue-600 hover:underline">Download</a>
                                     </td>
                                     <td class="border px-4 py-2">
-                                        <a href="{{ url_for('update', id=record[0]) }}" class="text-yellow-600 hover:underline mr-2">Edit</a>
-                                        <a href="{{ url_for('delete', id=record[0]) }}" onclick="return confirm('Are you sure you want to delete this record?')" class="text-red-600 hover:underline">Delete</a>
+                                        <a href="{{ url_for('update', id=record['id']) }}" class="text-yellow-600 hover:underline mr-2">Edit</a>
+                                        <a href="{{ url_for('delete', id=record['id']) }}" onclick="return confirm('Are you sure you want to delete this record?')" class="text-red-600 hover:underline">Delete</a>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -586,43 +601,33 @@ UPDATE_TEMPLATE = """
         <div class="bg-white p-6 rounded-lg shadow-md card">
             <h2 class="text-2xl font-semibold mb-4 text-gray-900">Edit Question Paper</h2>
             <form id="update-form" method="POST" enctype="multipart/form-data" class="space-y-4">
-                <header class="gradient-header text-white py-4">
-                    <div class="container mx-auto px-4 flex justify-between items-center">
-                        <h1 class="text-2xl font-bold">Update Question Paper</h1>
-                        <div class="flex items-center space-x-4">
-                            <span class="text-sm">Welcome, {{ session['username'] }}</span>
-                            <button id="theme-toggle" class="bg-white text-gray-900 px-3 py-1 rounded-md hover:bg-gray-200">Toggle Theme</button>
-                            <a href="{{ url_for('logout') }}" class="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700">Logout</a>
-                        </div>
-                    </div>
-                </header>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-base font-bold text-gray-700">Year Name</label>
-                        <input type="text" name="year_name" value="{{ record[1] }}" required maxlength="20" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
+                        <input type="text" name="year_name" value="{{ record['year_name'] }}" required maxlength="20" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
                     </div>
                     <div>
                         <label class="block text-base font-bold text-gray-700">Semester No</label>
-                        <input type="number" name="semester_no" value="{{ record[2] }}" required min="1" max="12" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
+                        <input type="number" name="semester_no" value="{{ record['semester_no'] }}" required min="1" max="12" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
                     </div>
                     <div>
                         <label class="block text-base font-bold text-gray-700">Subject Name</label>
-                        <input type="text" name="subject_name" value="{{ record[3] }}" required maxlength="100" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
+                        <input type="text" name="subject_name" value="{{ record['subject_name'] }}" required maxlength="100" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
                     </div>
                     <div>
                         <label class="block text-base font-bold text-gray-700">Subject Code</label>
-                        <input type="text" name="subject_code" value="{{ record[4] }}" maxlength="20" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
+                        <input type="text" name="subject_code" value="{{ record['subject_code'] }}" maxlength="20" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
                     </div>
                     <div>
                         <label class="block text-base font-bold text-gray-700">Paper Type</label>
                         <select name="paper_type" required class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
-                            <option value="Regular" {% if record[5] == 'Regular' %}selected{% endif %}>Regular</option>
-                            <option value="Arrear" {% if record[5] == 'Arrear' %}selected{% endif %}>Arrear</option>
+                            <option value="Regular" {% if record['paper_type'] == 'Regular' %}selected{% endif %}>Regular</option>
+                            <option value="Arrear" {% if record['paper_type'] == 'Arrear' %}selected{% endif %}>Arrear</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-base font-bold text-gray-700">Paper Year</label>
-                        <input type="number" name="paper_year" value="{{ record[6] if record[6] else '' }}" min="1900" max="9999" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
+                        <input type="number" name="paper_year" value="{{ record['paper_year'] if record['paper_year'] else '' }}" min="1900" max="9999" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-gray-900">
                     </div>
                     <div>
                         <label class="block text-base font-bold text-gray-700">Upload New File (PDF only, optional)</label>
@@ -693,7 +698,7 @@ def signup():
     init_db()  # Ensure tables exist
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return render_template_string(SIGNUP_TEMPLATE)
     
     try:
@@ -711,21 +716,21 @@ def signup():
                 return render_template_string(SIGNUP_TEMPLATE)
             
             # Check if username exists
-            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
             if cursor.fetchone():
                 flash("Username already exists.", "error")
                 return render_template_string(SIGNUP_TEMPLATE)
             
             # Hash password and insert user
             hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-            cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_password))
+            cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
             conn.commit()
             logging.info(f"User {username} signed up successfully")
             flash("Account created successfully! Please log in.", "success")
             return redirect(url_for('login'))
         
-    except mysql.connector.Error as e:
-        logging.error(f"Signup error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Signup error: {str(e)}")
         flash(f"Error creating account: {str(e)}", "error")
     finally:
         cursor.close()
@@ -738,7 +743,7 @@ def login():
     init_db()  # Ensure tables exist
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return render_template_string(LOGIN_TEMPLATE)
     
     try:
@@ -753,11 +758,11 @@ def login():
                 return render_template_string(LOGIN_TEMPLATE)
             
             # Check credentials
-            cursor.execute("SELECT id, username, password FROM users WHERE username = %s", (username,))
+            cursor.execute("SELECT id, username, password FROM users WHERE username = ?", (username,))
             user = cursor.fetchone()
-            if user and bcrypt.check_password_hash(user[2], password):
-                session['user_id'] = user[0]
-                session['username'] = user[1]
+            if user and bcrypt.check_password_hash(user['password'], password):
+                session['user_id'] = user['id']
+                session['username'] = user['username']
                 logging.info(f"User {username} logged in successfully")
                 flash("Logged in successfully!", "success")
                 return redirect(url_for('index'))
@@ -766,8 +771,8 @@ def login():
                 flash("Invalid username or password.", "error")
                 return render_template_string(LOGIN_TEMPLATE)
         
-    except mysql.connector.Error as e:
-        logging.error(f"Login error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Login error: {str(e)}")
         flash(f"Error logging in: {str(e)}", "error")
     finally:
         cursor.close()
@@ -789,7 +794,7 @@ def index():
     init_db()  # Ensure tables exist
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return render_template_string(INDEX_TEMPLATE, records=[], page=1, total_pages=1, search='', sort='id')
     
     try:
@@ -803,7 +808,7 @@ def index():
         query = "SELECT id, year_name, semester_no, subject_name, subject_code, paper_type, paper_year FROM question_papers_1"
         params = []
         if search:
-            query += " WHERE year_name LIKE %s OR subject_name LIKE %s OR subject_code LIKE %s"
+            query += " WHERE year_name LIKE ? OR subject_name LIKE ? OR subject_code LIKE ?"
             params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
         
         # Sorting
@@ -819,15 +824,15 @@ def index():
         total_pages = math.ceil(total_records / per_page)
 
         # Paginate
-        query += " LIMIT %s OFFSET %s"
+        query += " LIMIT ? OFFSET ?"
         params.extend([per_page, (page - 1) * per_page])
         cursor.execute(query, params)
         records = cursor.fetchall()
         
         return render_template_string(INDEX_TEMPLATE, records=records, page=page, total_pages=total_pages, search=search, sort=sort)
     
-    except mysql.connector.Error as e:
-        logging.error(f"Index error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Index error: {str(e)}")
         flash(f"Error fetching records: {str(e)}", "error")
     finally:
         cursor.close()
@@ -840,7 +845,7 @@ def index():
 def add():
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return redirect(url_for('index'))
     
     try:
@@ -874,14 +879,14 @@ def add():
         file_data = file.read()
         cursor.execute("""
             INSERT INTO question_papers_1 (year_name, semester_no, subject_name, subject_code, paper_type, paper_year, file_data)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (year_name, semester_no, subject_name, subject_code, paper_type, paper_year, file_data))
         conn.commit()
         logging.info(f"Added question paper: {subject_name} ({year_name})")
         flash("Question paper added successfully!", "success")
     
-    except mysql.connector.Error as e:
-        logging.error(f"Add error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Add error: {str(e)}")
         flash(f"Error adding question paper: {str(e)}", "error")
     finally:
         cursor.close()
@@ -894,7 +899,7 @@ def add():
 def update(id):
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return redirect(url_for('index'))
     
     try:
@@ -929,29 +934,29 @@ def update(id):
                 file_data = file.read()
                 cursor.execute("""
                     UPDATE question_papers_1
-                    SET year_name=%s, semester_no=%s, subject_name=%s, subject_code=%s, paper_type=%s, paper_year=%s, file_data=%s
-                    WHERE id=%s
+                    SET year_name=?, semester_no=?, subject_name=?, subject_code=?, paper_type=?, paper_year=?, file_data=?
+                    WHERE id=?
                 """, (year_name, semester_no, subject_name, subject_code, paper_type, paper_year, file_data, id))
             else:
                 cursor.execute("""
                     UPDATE question_papers_1
-                    SET year_name=%s, semester_no=%s, subject_name=%s, subject_code=%s, paper_type=%s, paper_year=%s
-                    WHERE id=%s
+                    SET year_name=?, semester_no=?, subject_name=?, subject_code=?, paper_type=?, paper_year=?
+                    WHERE id=?
                 """, (year_name, semester_no, subject_name, subject_code, paper_type, paper_year, id))
             conn.commit()
             logging.info(f"Updated question paper ID: {id}")
             flash("Question paper updated successfully!", "success")
             return redirect(url_for('index'))
         else:
-            cursor.execute("SELECT id, year_name, semester_no, subject_name, subject_code, paper_type, paper_year FROM question_papers_1 WHERE id=%s", (id,))
+            cursor.execute("SELECT id, year_name, semester_no, subject_name, subject_code, paper_type, paper_year FROM question_papers_1 WHERE id=?", (id,))
             record = cursor.fetchone()
             if not record:
                 flash("Question paper not found.", "error")
                 return redirect(url_for('index'))
             return render_template_string(UPDATE_TEMPLATE, record=record)
     
-    except mysql.connector.Error as e:
-        logging.error(f"Update error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Update error: {str(e)}")
         flash(f"Error updating question paper: {str(e)}", "error")
     finally:
         cursor.close()
@@ -964,18 +969,18 @@ def update(id):
 def delete(id):
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return redirect(url_for('index'))
     
     try:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM question_papers_1 WHERE id=%s", (id,))
+        cursor.execute("DELETE FROM question_papers_1 WHERE id=?", (id,))
         conn.commit()
         logging.info(f"Deleted question paper ID: {id}")
         flash("Question paper deleted successfully!", "success")
     
-    except mysql.connector.Error as e:
-        logging.error(f"Delete error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Delete error: {str(e)}")
         flash(f"Error deleting question paper: {str(e)}", "error")
     finally:
         cursor.close()
@@ -988,18 +993,18 @@ def delete(id):
 def download(id):
     conn = get_db_connection()
     if not conn:
-        flash("Database connection failed. Check TiDB credentials, CA certificate, or IP access list.", "error")
+        flash("Database connection failed. Check SQLite database path.", "error")
         return redirect(url_for('index'))
     
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT file_data, subject_name, year_name FROM question_papers_1 WHERE id=%s", (id,))
+        cursor.execute("SELECT file_data, subject_name, year_name FROM question_papers_1 WHERE id=?", (id,))
         record = cursor.fetchone()
         if not record:
             flash("Question paper not found.", "error")
             return redirect(url_for('index'))
         
-        file_data, subject_name, year_name = record
+        file_data, subject_name, year_name = record['file_data'], record['subject_name'], record['year_name']
         filename = secure_filename(f"{subject_name}_{year_name}.pdf")
         response = make_response(file_data)
         response.headers['Content-Type'] = 'application/pdf'
@@ -1007,8 +1012,8 @@ def download(id):
         logging.info(f"Downloaded question paper ID: {id}")
         return response
     
-    except mysql.connector.Error as e:
-        logging.error(f"Download error: {str(e)} (Error Code: {e.errno}, SQL State: {e.sqlstate})")
+    except sqlite3.Error as e:
+        logging.error(f"Download error: {str(e)}")
         flash(f"Error downloading question paper: {str(e)}", "error")
     finally:
         cursor.close()
@@ -1017,4 +1022,5 @@ def download(id):
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    init_db()  # Initialize database on startup
+    app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
