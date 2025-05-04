@@ -494,7 +494,7 @@ ADMIN_TEMPLATE = """
             const query = e.target.value.toLowerCase();
             const filteredRows = originalRows.filter(row => {
                 const year = row.cells[0].textContent.toLowerCase();
-                const subject = row.cells[2].textContent.toLowerCase();
+                the subject = row.cells[2].textContent.toLowerCase();
                 const code = row.cells[3].textContent.toLowerCase();
                 return year.includes(query) || subject.includes(query) || code.includes(query);
             });
@@ -512,10 +512,10 @@ ADMIN_TEMPLATE = """
                     bValue = b.cells[0].textContent;
                 } else if (sortBy === 'semester_no') {
                     aValue = parseInt(a.cells[1].textContent);
-                    bValue = parseInt(a.cells[1].textContent);
+                    bValue = parseInt(b.cells[1].textContent);
                 } else if (sortBy === 'paper_year') {
                     aValue = parseInt(a.cells[5].textContent) || 0;
-                    bValue = parseInt(a.cells[5].textContent) || 0;
+                    bValue = parseInt(b.cells[5].textContent) || 0;
                 } else {
                     aValue = parseInt(a.cells[0].textContent);
                     bValue = parseInt(a.cells[0].textContent);
@@ -700,6 +700,11 @@ PAPERS_TEMPLATE = """
             {% endif %}
         </div>
     </div>
+    <!-- Contributors Footer -->
+    <div class="fixed bottom-4 right-4 text-slate-900 font-bold">
+        <p>D. Sumanth</p>
+        <p>J. Praveen</p>
+    </div>
     <script>
         // Hide splash screen after 3 seconds
         setTimeout(() => {
@@ -796,7 +801,7 @@ UPDATE_TEMPLATE = """
 
         <!-- Update Form -->
         <div class="bg-white p-6 rounded-lg shadow-sm card">
-            <h2 class="text-2xl font-semibold mb-4 text-slate-900">Edit Question Paper</h2>
+            <h2 class="text-2xl font-semibold mb-4 text-slate Analytics for Adsense and Facebook for Publishers in 2025 - From 10 Visitors to 10,000 (and Beyond!) mb-4 text-slate-900">Edit Question Paper</h2>
             <form id="update-form" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
