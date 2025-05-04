@@ -1,70 +1,57 @@
-Q_papers 📚
-Q_papers is a Flask-based web application designed for Dhanalakshmi Srinivasan University to manage and distribute academic question papers. Users can search, sort, and download PDF question papers, while administrators can perform CRUD operations (Create, Read, Update, Delete) and view visitor statistics.
+# **Q_papers** 📚
+
+**Q_papers** is a Flask-based web application designed for **Dhanalakshmi Srinivasan University** to manage and distribute academic question papers. Users can search, sort, and download PDF question papers, while administrators can perform CRUD operations (Create, Read, Update, Delete) and view visitor statistics.
 
 The app features:
+- A modern UI using **Tailwind CSS**
+- A splash screen with branding
+- A secure **admin panel**
+- A **visitor tracking system**
 
-A modern UI using Tailwind CSS
+🔗 **Live App:** [https://qp-papers-3.onrender.com](https://qp-papers-3.onrender.com)
 
-A splash screen with branding
+---
 
-A secure admin panel
+## **🚀 Features**
 
-A visitor tracking system
+### **👨‍🎓 User Interface**
+- 🎬 Splash screen with animated gradient and university branding
+- 🔍 Search papers by year, subject, or code
+- 📊 Sort papers by ID, year, semester, or paper year
+- 📥 Download question papers in PDF format
 
-🔗 Live App: https://qp-papers.onrender.com
+### **🔐 Admin Panel**
+- Admin login with restricted access
+- Add, update, or delete question papers (PDF uploads)
+- Visitor statistics:
+  - Total visits to papers section
+  - Unique visitors (via cookies)
+  - Daily visits (last 7 days) using Chart.js
 
-🚀 Features
-👨‍🎓 User Interface
-🎬 Splash screen with animated gradient and university branding
+### **⚙️ Technical Stack**
+- **Backend:** Flask (Python)
+- **Database:** SQLite
+- **Frontend:** Tailwind CSS
+- **Charts:** Chart.js
+- Secure cookie-based visitor tracking (30-day expiration)
+- Client-side form validation
+- Logging for debugging
 
-🔍 Search papers by year, subject, or code
+---
 
-📊 Sort papers by ID, year, semester, or paper year
+## **📦 Prerequisites**
 
-📥 Download question papers in PDF format
+- Python 3.8+
+- Git
+- SQLite (included with Python)
+- Modern browser (Chrome, Firefox, Edge)
 
-🔐 Admin Panel
-Admin login with restricted access
+---
 
-Add, update, or delete question papers (PDF uploads)
+## **🧰 Setup Instructions**
 
-Visitor statistics:
-
-Total visits to papers section
-
-Unique visitors (via cookies)
-
-Daily visits (last 7 days) using Chart.js
-
-⚙️ Technical Stack
-Backend: Flask (Python)
-
-Database: SQLite
-
-Frontend: Tailwind CSS
-
-Charts: Chart.js
-
-Secure cookie-based visitor tracking (30-day expiration)
-
-Client-side form validation
-
-Logging for debugging
-
-📦 Prerequisites
-Python 3.8+
-
-Git
-
-SQLite (included with Python)
-
-Modern browser (Chrome, Firefox, Edge)
-
-🧰 Setup Instructions
-1. Clone the Repository
-bash
-Copy
-Edit
+### **1. Clone the Repository**
+```bash
 git clone https://github.com/<your-username>/qp-papers.git
 cd qp-papers
 2. Create a Virtual Environment
@@ -186,4 +173,7 @@ This project is licensed under the MIT License.
 See the LICENSE file for details.
 
 👨‍💻 Developers
-Developed with ❤️ by Sumanth and Praveen
+Developed by Sumanth and Praveen
+
+
+
