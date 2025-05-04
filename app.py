@@ -303,6 +303,10 @@ ADMIN_TEMPLATE = """
             <h1 class="text-3xl font-bold text-slate-900">Welcome to Q_papers</h1>
             <p class="text-slate-900 subtitle">It is only for Dhanalaxmi Srinivasan University</p>
         </div>
+        <div class="absolute bottom-4 right-4 text-slate-900 font-bold">
+            <p>D. Sumanth</p>
+            <p>J. Praveen</p>
+        </div>
     </div>
     <header class="gradient-header text-white py-4">
         <div class="container mx-auto px-4 flex justify-between items-center">
@@ -494,7 +498,7 @@ ADMIN_TEMPLATE = """
             const query = e.target.value.toLowerCase();
             const filteredRows = originalRows.filter(row => {
                 const year = row.cells[0].textContent.toLowerCase();
-                the subject = row.cells[2].textContent.toLowerCase();
+                const subject = row.cells[2].textContent.toLowerCase();
                 const code = row.cells[3].textContent.toLowerCase();
                 return year.includes(query) || subject.includes(query) || code.includes(query);
             });
@@ -518,7 +522,7 @@ ADMIN_TEMPLATE = """
                     bValue = parseInt(b.cells[5].textContent) || 0;
                 } else {
                     aValue = parseInt(a.cells[0].textContent);
-                    bValue = parseInt(a.cells[0].textContent);
+                    bValue = parseInt(b.cells[0].textContent);
                 }
                 return aValue > bValue ? 1 : -1;
             });
@@ -618,6 +622,10 @@ PAPERS_TEMPLATE = """
             <h1 class="text-3xl font-bold text-slate-900">Welcome to Q_papers</h1>
             <p class="text-slate-900 subtitle">It is only for Dhanalaxmi Srinivasan University</p>
         </div>
+        <div class="absolute bottom-4 right-4 text-slate-900 font-bold">
+            <p>D. Sumanth</p>
+            <p>J. Praveen</p>
+        </div>
     </div>
     <header class="gradient-header text-white py-4">
         <div class="container mx-auto px-4 flex justify-between items-center">
@@ -700,11 +708,6 @@ PAPERS_TEMPLATE = """
             {% endif %}
         </div>
     </div>
-    <!-- Contributors Footer -->
-    <div class="fixed bottom-4 right-4 text-slate-900 font-bold">
-        <p>D. Sumanth</p>
-        <p>J. Praveen</p>
-    </div>
     <script>
         // Hide splash screen after 3 seconds
         setTimeout(() => {
@@ -736,7 +739,7 @@ PAPERS_TEMPLATE = """
                     bValue = b.cells[0].textContent;
                 } else if (sortBy === 'semester_no') {
                     aValue = parseInt(a.cells[1].textContent);
-                    bValue = parseInt(a.cells[1].textContent);
+                    bValue = parseInt(b.cells[1].textContent);
                 } else if (sortBy === 'paper_year') {
                     aValue = parseInt(a.cells[5].textContent) || 0;
                     bValue = parseInt(a.cells[5].textContent) || 0;
@@ -801,7 +804,7 @@ UPDATE_TEMPLATE = """
 
         <!-- Update Form -->
         <div class="bg-white p-6 rounded-lg shadow-sm card">
-            <h2 class="text-2xl font-semibold mb-4 text-slate Analytics for Adsense and Facebook for Publishers in 2025 - From 10 Visitors to 10,000 (and Beyond!) mb-4 text-slate-900">Edit Question Paper</h2>
+            <h2 class="text-2xl font-semibold mb-4 text-slate-900">Edit Question Paper</h2>
             <form id="update-form" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -829,7 +832,7 @@ UPDATE_TEMPLATE = """
                     </div>
                     <div>
                         <label class="block text-base font-bold text-slate-900">Paper Year</label>
-                        <input type="number" name="paper_year" value="{{ record['paper_year'] if record['paper_year'] else '' }}" min="1900" max="9999" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
+                        <input type="number" name="paper_year MIDTERM 2 Practice Questions – Spring 2025  value="{{ record['paper_year'] if record['paper_year'] else '' }}" min="1900" max="9999" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-slate-900 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
                         <label class="block text-base font-bold text-slate-900">Upload New File (PDF only, optional)</label>
